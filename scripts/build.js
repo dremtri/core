@@ -23,14 +23,23 @@ const { compress } = require('brotli')
 const { targets: allTargets, fuzzyMatchTarget } = require('./utils')
 
 const args = require('minimist')(process.argv.slice(2))
+// 获取参数
 const targets = args._
+// 打包输出的格式
 const formats = args.formats || args.f
+// 是否只打包开发环境
 const devOnly = args.devOnly || args.d
+// 是否只打包生产环境
 const prodOnly = !devOnly && (args.prodOnly || args.p)
+// 是否有sourcemap
 const sourceMap = args.sourcemap || args.s
+// 是否是发包
 const isRelease = args.release
+// 是否构建 ts 的 types
 const buildTypes = args.t || args.types || isRelease
+// 是否匹配 packages 下所有的子包
 const buildAllMatching = args.all || args.a
+// 获取最新的 commit id 前7位
 const commit = execa.sync('git', ['rev-parse', 'HEAD']).stdout.slice(0, 7)
 
 run()
@@ -72,7 +81,9 @@ async function runParallel(maxConcurrency, source, iteratorFn) {
 }
 
 async function build(target) {
+  // 获取构建目标的路径
   const pkgDir = path.resolve(`packages/${target}`)
+  // 获取构建目标的 package.json 文件的内容
   const pkg = require(`${pkgDir}/package.json`)
 
   // if this is a full build (no specific targets), ignore private packages
@@ -107,7 +118,7 @@ async function build(target) {
     ],
     { stdio: 'inherit' }
   )
-
+  // 构建需要构建 type 并且 子包的 types 有值
   if (buildTypes && pkg.types) {
     console.log()
     console.log(
@@ -124,8 +135,9 @@ async function build(target) {
       localBuild: true,
       showVerboseMessages: true
     })
-
+    // 构建 type definitions 是否成功
     if (extractorResult.succeeded) {
+      // 将子包下 types 目录下的 .d.ts 文件内容和生成的 .d.ts 文件内容合并
       // concat additional d.ts to rolled-up dts
       const typesDir = path.resolve(pkgDir, 'types')
       if (await fs.exists(typesDir)) {
@@ -149,7 +161,7 @@ async function build(target) {
       )
       process.exitCode = 1
     }
-
+    // type definitions 成功后 删除 子包下的 dist/packages 目录
     await fs.remove(`${pkgDir}/dist/packages`)
   }
 }
